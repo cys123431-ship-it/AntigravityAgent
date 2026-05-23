@@ -49,7 +49,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ appState }) => {
         </div>
 
         <div className="card">
-          <div className="card-title">Mobile Cloud Relay</div>
+          <div className="card-title">Mobile Cloud Relay (WebRTC)</div>
           <div className="status-value" style={{ color: 'var(--text-muted)', fontSize: '1rem', marginBottom: '0.5rem' }}>
             {appState.relay}
           </div>
@@ -57,7 +57,29 @@ export const Dashboard: React.FC<DashboardProps> = ({ appState }) => {
             <button onClick={async () => {
               const code = await invoke<string>('generate_pairing_code');
               setPairingCode(code);
-              window.location.reload();
+              
+              // WebRTC Logic
+              import('peerjs').then(({ default: Peer }) => {
+                const peerId = `antigravity-agent-${code}`;
+                const peer = new Peer(peerId);
+                
+                peer.on('open', (id) => {
+                  console.log('PeerJS listening on', id);
+                });
+                
+                peer.on('connection', (conn) => {
+                  conn.on('data', async (data) => {
+                    console.log('Received from mobile:', data);
+                    try {
+                      const res = await invoke<string>('simulate_relay_message', { message: data as string });
+                      conn.send(`✅ ${res}`);
+                    } catch (err) {
+                      conn.send(`❌ ${err}`);
+                    }
+                  });
+                });
+              });
+              
             }} style={{ padding: '0.5rem 1rem', background: 'var(--primary)', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer', width: '100%', marginBottom: '1rem' }}>
               Generate Pairing Code
             </button>
